@@ -7,14 +7,25 @@ const cors = require("cors");
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// Configurar CORS
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-  })
-);
+// Lista de orígenes permitidos
+const allowedOrigins = [process.env.localurl, "https://doc-manager-front.vercel.app"];
+
+// Configuración personalizada de CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Verificar si el origen está en la lista de permitidos
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error("No permitido por CORS"));
+    }
+  },
+};
+
+// Usar CORS con las opciones configuradas
+app.use(cors(corsOptions));
 
 app.post("/upload", upload.array("files", 100), async (req, res) => {
   try {
