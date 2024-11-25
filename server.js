@@ -5,7 +5,7 @@ const fs = require("fs");
 const ExcelJS = require("exceljs");
 const { readFacturaFromXml } = require("./facturaProcessor"); // Función para procesar datos desde XML
 const cors = require("cors");
-
+const connectDB = require("./data/connection")
 const app = express();
 const upload = multer({ dest: "uploads/" });
 const port = process.env.PORT || 3000;
@@ -27,6 +27,10 @@ const corsOptions = {
 
 // Usar CORS con las opciones configuradas
 app.use(cors(corsOptions));
+
+// Llama a connectDB para establecer la conexión a la base de datos
+connectDB();
+
 // Ruta raíz
 app.get("/", (req, res) => {
   res.send("Hola Mundo");
@@ -135,4 +139,7 @@ app.post("/upload", upload.array("files", 100), async (req, res) => {
 // Iniciar el servidor
 app.listen(port, () => {
   console.log(`Servidor escuchando en http://localhost:${port}`);
+
+
+
 });
