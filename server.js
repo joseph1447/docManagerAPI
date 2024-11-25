@@ -27,7 +27,10 @@ const corsOptions = {
 
 // Usar CORS con las opciones configuradas
 app.use(cors(corsOptions));
-
+// Ruta raíz
+app.get("/", (req, res) => {
+  res.send("Hola Mundo");
+});
 app.post("/upload", upload.array("files", 100), async (req, res) => {
   try {
     // Verificar si se subieron archivos
