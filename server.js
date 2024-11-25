@@ -1,4 +1,5 @@
 const express = require("express");
+require('dotenv').config();
 const multer = require("multer");
 const fs = require("fs");
 const ExcelJS = require("exceljs");
@@ -10,7 +11,7 @@ const upload = multer({ dest: "uploads/" });
 const port = process.env.PORT || 3000;
 
 // Lista de orígenes permitidos
-const allowedOrigins = [process.env.localurl, "https://doc-manager-front.vercel.app"];
+const allowedOrigins = ["https://doc-manager-front.vercel.app"];
 
 // Configuración personalizada de CORS
 const corsOptions = {
