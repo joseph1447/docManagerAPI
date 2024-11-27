@@ -11,7 +11,7 @@ const upload = multer({ dest: "uploads/" });
 const port = process.env.PORT || 3000;
 
 // Lista de orígenes permitidos
-const allowedOrigins = ["https://doc-manager-front.vercel.app"];
+const allowedOrigins = ["http://localhost:5173","https://doc-manager-front.vercel.app"];
 
 // Configuración personalizada de CORS
 const corsOptions = {
