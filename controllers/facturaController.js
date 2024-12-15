@@ -1,3 +1,36 @@
+/**
+ * @swagger
+ * /upload:
+ *   post:
+ *     summary: Sube archivos XML para procesar facturas
+ *     tags: [Facturas]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Excel generado con las facturas procesadas.
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: No se subieron archivos.
+ *       500:
+ *         description: Error interno del servidor.
+ */
+
+
 const facturaService = require("../services/facturaService");
 
 exports.uploadFiles = async (req, res) => {

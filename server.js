@@ -4,7 +4,8 @@ const cors = require("cors");
 const multer = require("multer");
 const connectDB = require("./data/connection");
 const corsOptions = require("./utils/corsConfig");
-
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpecs = require("./utils/swaggerConfig");
 // Controladores
 const facturaController = require("./controllers/facturaController");
 const chatbotController = require("./controllers/chatbotController");
@@ -20,6 +21,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Rutas
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+
 app.get("/", (req, res) => res.send("Hola Mundo"));
 
 // Rutas de Facturas

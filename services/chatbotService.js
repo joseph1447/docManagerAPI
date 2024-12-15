@@ -13,5 +13,5 @@ exports.getChatbotResponse = async (userMessage) => {
     ],
   });
 
-  return result.text();
+  return result.response.text;
 };
