@@ -3,7 +3,7 @@ require('dotenv').config();
 let Conversation;
 
 (async () => {
-  Conversation = (await import('../data/messageSchema.js')).default;
+  Conversation = (await import('../data/models/messageSchema.js')).default;
 })();
 
 const apiKey = process.env.XAI_API_KEY;

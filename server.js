@@ -6,7 +6,7 @@ const connectDB = require("./data/connection");
 const corsOptions = require("./utils/corsConfig");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpecs = require("./utils/swaggerConfig");
-// Controladores
+const userController = require("./controllers/userController");
 const facturaController = require("./controllers/facturaController");
 const chatbotController = require("./controllers/chatbotController");
 
@@ -16,22 +16,30 @@ const port = process.env.PORT || 3000;
 // Conexión a la base de datos
 connectDB();
 
-// Configuración de middleware
+// Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Rutas
+// Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 
+// Base route
 app.get("/", (req, res) => res.send("Hola Mundo"));
 
-// Rutas de Facturas
-app.post("/upload", multer({ dest: "uploads/" }).array("files", 100), facturaController.uploadFiles);
+// Rutas de usuarios
+app.post("/auth/google", userController.authenticateGoogleUser);
 
-// Rutas de Chatbot
+// Rutas de facturas
+app.post(
+  "/upload",
+  multer({ dest: "uploads/" }).array("files", 100),
+  facturaController.uploadFiles
+);
+
+// Rutas de chatbot
 app.post("/chatbot", chatbotController.handleChatRequest);
 
-// Iniciar el servidor
+// Iniciar servidor
 app.listen(port, () => {
   console.log(`Servidor corriendo en el puerto ${port}`);
 });
