@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    loginCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true } // Adds createdAt and updatedAt fields automatically
 );
