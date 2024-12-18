@@ -36,6 +36,7 @@ const createUser = async (userData) => {
       email: userData.email,
       picture: userData.picture,
       createdAt: new Date(),
+      loginCount: 1 // Inicializamos loginCount en 1 para el primer login
     });
 
     const result = await user.save();
@@ -47,7 +48,7 @@ const createUser = async (userData) => {
 };
 
 /**
- * Encuentra un usuario o lo crea si no existe.
+ * Encuentra un usuario o lo crea si no existe, incrementando el contador de logins.
  * @param {Object} userData - Datos del usuario.
  * @returns {Promise<Object>} - El usuario existente o creado.
  */
@@ -63,6 +64,11 @@ const findOrCreateUser = async (userData) => {
     if (!user) {
       console.log('Creando nuevo usuario...');
       user = await createUser(userData);
+    } else {
+      // Incrementamos el contador de login si el usuario ya existe
+      user.loginCount = (user.loginCount || 0) + 1;
+      await user.save();
+      console.log('Login count incremented for existing user:', user.loginCount);
     }
     return user;
   } catch (error) {
