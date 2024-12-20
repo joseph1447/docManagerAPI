@@ -12,17 +12,19 @@
 
     "dev": "node server.js",
 
-    "build": "npm install"
+    "build": "npm install",
+
+    "start": "node server.js"
 
   },
 
   "keywords": [],
 
-  "author": "",
+  "author": "josephquesada92@gmail.com",
 
   "license": "ISC",
 
-  "description": "",
+  "description": "API to handle multiple type of request",
 
   "dependencies": {
 
@@ -66,7 +68,23 @@
 
     "standard": "^17.1.2"
 
-  }
+  },
+
+  "repository": {
+
+    "type": "git",
+
+    "url": "git+https://github.com/joseph1447/docManagerAPI.git"
+
+  },
+
+  "bugs": {
+
+    "url": "https://github.com/joseph1447/docManagerAPI/issues"
+
+  },
+
+  "homepage": "https://github.com/joseph1447/docManagerAPI#readme"
 
 }
 
