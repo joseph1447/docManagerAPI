@@ -1,0 +1,55 @@
+### Obtener información de la API (ruta base)
+GET http://localhost:3000/ HTTP/1.1
+
+###
+
+### Autenticación con Google
+POST http://localhost:3000/auth/google HTTP/1.1
+Content-Type: application/json
+
+{
+  "idToken": "tu-id-token-de-google"
+}
+
+###
+
+### Subir archivos (facturas)
+POST http://localhost:3000/upload HTTP/1.1
+Content-Type: multipart/form-data
+
+--boundary
+Content-Disposition: form-data; name="files"; filename="factura1.pdf"
+Content-Type: application/pdf
+
+##[Contenido del archivo aquí]
+
+--boundary
+Content-Disposition: form-data; name="files"; filename="factura2.pdf"
+Content-Type: application/pdf
+
+##[Contenido del archivo aquí]
+
+--boundary--
+
+###
+
+### Enviar solicitud al chatbot
+POST http://localhost:3000/chatbot HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "Hola, necesito ayuda con mi factura"
+}
+
+###
+
+### Endpoint no encontrado (prueba de 404)
+GET http://localhost:3000/no-existe HTTP/1.1
+
+###Crypto Controller
+
+### Obtener el top 20 de criptomonedas volátiles
+GET http://localhost:3000/api/top20-volatile
+Content-Type: application/json
+
+
