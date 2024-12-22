@@ -44,7 +44,7 @@ async function getKlinesFromCacheOrAPI(symbol, interval, limit) {
 
     console.log(`Saving Kline data for ${symbol}-${interval}`);
     await Kline.updateOne(
-      { symbol: symbol.toUpperCase(), interval: interval.toLowerCase() },
+      { symbol: symbol.replace('USDT','').toUpperCase(), interval: interval.toLowerCase() },
       { $set: { klines: processedKlines, lastUpdated: Date.now() } },
       { upsert: true } // Esta opción crea la colección si no existe.
     );
@@ -119,13 +119,13 @@ async function getTop20Volatile() {
   
         if (ticker) {
           const currentPrice = parseFloat(ticker.lastPrice);
-  
+          const symbolNOUSDT = symbol.replace('USDT','');
           // Attempt to retrieve the coin's image URL (assuming Binance provides it)
-          const imageUrl = `https://assets.binance.com/asset/public/i30/`; // Replace with correct URL format if needed
-          const imageName = `${symbol.toLowerCase()}.png`;
+          const imageUrl = ``; // Replace with correct URL format if needed
+          const imageName = `${symbolNOUSDT.toLowerCase()}.png`;
   
           volatileTickers.push({
-            symbol,
+            symbol:symbolNOUSDT,
             volatility,
             volume: parseFloat(ticker.volume),
             currentPrice,
