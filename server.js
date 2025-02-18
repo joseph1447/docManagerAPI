@@ -41,6 +41,7 @@ app.post(
 
 // Rutas de chatbot
 app.post("/chatbot", chatbotController.handleChatRequest)
+app.get("/forecast", chatbotController.handleChatRequest)
 
 // **Mount the crypto controller**
 app.use('/api', cryptoController);  // Mount under the "/api" path

@@ -52,4 +52,7 @@ GET http://localhost:3000/no-existe HTTP/1.1
 GET http://localhost:3000/api/top20-volatile
 Content-Type: application/json
 
+### Obtener el top 20 de criptomonedas volátiles desde binance y actualiza bd
+GET http://localhost:3000//api/loadCryptos
+Content-Type: application/json
 

@@ -44,7 +44,7 @@ async function getKlinesFromCacheOrAPI(symbol, interval, limit) {
 
     console.log(`Saving Kline data for ${symbol}-${interval}`);
     await Kline.updateOne(
-      { symbol: symbol.replace('USDT','').toUpperCase(), interval: interval.toLowerCase() },
+      { symbol: symbol.toUpperCase(), interval: interval.toLowerCase() },
       { $set: { klines: processedKlines, lastUpdated: Date.now() } },
       { upsert: true } // Esta opción crea la colección si no existe.
     );
@@ -61,7 +61,7 @@ async function getKlinesFromCacheOrAPI(symbol, interval, limit) {
 }
 
 
-async function getKlinesForSymbols(symbols, interval, limit) {
+async function updateKlinesFromBinance(symbols, interval, limit) {
   try {
     const klinesPromises = symbols.map(symbol =>
       getKlinesFromCacheOrAPI(symbol, interval, limit).catch(error => {
@@ -78,72 +78,63 @@ async function getKlinesForSymbols(symbols, interval, limit) {
     return [];
   }
 }
-async function getTop20Volatile() {
-    try {
-      const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`); // Use 24hr ticker endpoint
-  
-      if (tickersResponse.status !== 200) {
-        console.error(`Error fetching tickers (status: ${tickersResponse.status})`);
-        return [];
-      }
-  
-      const tickersData = tickersResponse.data;
-  
-      if (!Array.isArray(tickersData)) {
-        console.error("Unexpected tickers response:", tickersData);
-        return [];
-      }
-  
-      const usdtSymbols = tickersData
-        .filter(ticker => ticker.symbol.endsWith('USDT'))
-        .map(ticker => ticker.symbol);
-  
-      const klinesData = await getKlinesForSymbols(usdtSymbols, '1h', 24);
-  
-      const volatileTickers = [];
-  
-      for (let i = 0; i < klinesData.length; i++) {
-        const klines = klinesData[i];
-        const symbol = usdtSymbols[i];
-  
-        if (!klines || klines.length < 24) {
-          console.warn(`Skipping ${symbol} due to missing or insufficient kline data.`);
-          continue;
-        }
-  
-        const priceChanges = klines.map(kline => parseFloat(kline.close) - parseFloat(kline.open));
-        const volatility = Math.max(...priceChanges.map(Math.abs));
-  
-        // Find the corresponding ticker from the 24hr data to get the volume
-        const ticker = tickersData.find(t => t.symbol === symbol);
-  
-        if (ticker) {
-          const currentPrice = parseFloat(ticker.lastPrice);
-          const symbolNOUSDT = symbol.replace('USDT','');
-          // Attempt to retrieve the coin's image URL (assuming Binance provides it)
-          const imageUrl = ``; // Replace with correct URL format if needed
-          const imageName = `${symbolNOUSDT.toLowerCase()}.png`;
-  
-          volatileTickers.push({
-            symbol:symbolNOUSDT,
-            volatility,
-            volume: parseFloat(ticker.volume),
-            currentPrice,
-            imageUrl: `${imageUrl}${imageName}`, // Concatenate image URL
-          });
-        } else {
-          console.warn(`Ticker data not found for ${symbol}`);
-        }
-      }
-  
-      volatileTickers.sort((a, b) => b.volatility - a.volatility);
-      const top20VolatileWithVolume = volatileTickers.filter(ticker => ticker.volume > 1000000);
-  
-      return top20VolatileWithVolume.slice(0, 20);
-    } catch (error) {
-      console.error("Error in getTop20Volatile:", error);
+async function getTop20Volatile(updateFromBinance = true) { // Default to true (update data)
+  try {
+    const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`); // Use 24hr ticker endpoint
+
+    if (tickersResponse.status !== 200) {
+      console.error(`Error fetching tickers (status: ${tickersResponse.status})`);
       return [];
     }
+
+    const tickersData = tickersResponse.data;
+
+    if (!Array.isArray(tickersData)) {
+      console.error("Unexpected tickers response:", tickersData);
+      return [];
+    }
+
+    const usdtSymbols = tickersData.filter(ticker => ticker.symbol.endsWith('USDT')).map(ticker => ticker.symbol);
+
+    // Update klines from Binance only if `updateFromBinance` is true
+    if (updateFromBinance) {
+      await updateKlinesFromBinance(usdtSymbols, '1h', 24);
+    }
+
+    const volatileTickers = [];
+
+    for (const symbol of usdtSymbols) {
+      const symbolNOUSDT = symbol.replace('USDT','');
+      const cachedData = await Kline.findOne({ symbol: symbolNOUSDT.toUpperCase(), interval: '1h' });
+      const ticker = tickersData.find(t => t.symbol === symbol);
+
+      if (cachedData && ticker && cachedData.klines && cachedData.klines.length >= 24) {
+          const priceChanges = cachedData.klines.map(kline => kline.close - kline.open);
+          const volatility = Math.max(...priceChanges.map(Math.abs));
+          const imageUrl = `https://assets.binance.com/asset/public/i30/`; // Replace with correct URL format if needed
+          const imageName = `${symbolNOUSDT.toLowerCase()}.png`;
+
+          volatileTickers.push({
+              symbol: symbolNOUSDT,
+              volatility,
+              volume: parseFloat(ticker.volume),
+              currentPrice: parseFloat(ticker.lastPrice),
+              imageUrl: `${imageUrl}${imageName}`, // Concatenate image URL
+          });
+      } else {
+          console.warn(`Skipping ${symbolNOUSDT} due to missing data.`);
+      }
+    }
+
+    volatileTickers.sort((a, b) => b.volatility - a.volatility);
+    const top20 = volatileTickers.filter(t => t.volume > 1000000).slice(0, 20);
+
+    return top20;
+  } catch (error) {
+    console.error("Error in getTop20Volatile:", error);
+    return [];
   }
+}
+
+module.exports = { getTop20Volatile };
   
-  module.exports = { getTop20Volatile };
