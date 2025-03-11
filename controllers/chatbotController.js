@@ -79,8 +79,7 @@ const { getCurrentDate } = require('../utils/dateUtils');
 
 const SURF_KEYWORDS = [
   'pronóstico', 'swell', 'marea', 
-  'surf', 'olas', 'cabuya', 'hermosa',
-  'cedros', 'lajas'
+  'surf', 'olas', 'Santa teresa'
 ];
 
 // Función para generar el HTML
@@ -133,8 +132,6 @@ exports.handleChatRequest = async (req, res) => {
     if (!message) {
       message = `Generar pronóstico completo para hoy en:
       - Santa Teresa
-      - Playa Hermosa
-      - Cabuya
       Incluir detalles técnicos y mareas actuales`;
     }
 
@@ -148,14 +145,12 @@ exports.handleChatRequest = async (req, res) => {
       Requerimientos técnicos:
       ✔ Dirección precisa del swell (grados)
       ✔ Periodo y tamaño de olas (metros)
-      ✔ Tabla de mareas hora por hora
-      ✔ Recomendación de equipo
-      ✔ Peligros potenciales
+      ✔ Tabla de mareas para el dia
       
       Formato requerido:
       📅 [Fecha] | 🌡 [Condiciones]
-      🏄 [Playas Recomendadas]
-      ⚠️ [Advertencias]`;
+      🏄 [Tabla de mareas]
+      ⚠️ [Reporte general de las condiciones para practicar surf]`;
     }
 
     const response = await chatbotService.getChatbotResponse(message, conversationId);
@@ -170,6 +165,13 @@ exports.handleChatRequest = async (req, res) => {
     }
 
     // Determinar formato de respuesta
+
+      // res.json({
+      //   response: response.response,
+      //   conversationId: response.conversationId
+      // });
+    
+
     if (req.accepts('html')) {
       res.send(formatHTMLResponse(response, isSurfQuery));
     } else {

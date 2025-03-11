@@ -1,4 +1,5 @@
 require('dotenv').config();
+const AI_PROVIDERS = require('../utils/AIProviderConfig.js'); // or import AI_PROVIDERS from './utils/AIProviderConfig.js'; if using ES modules
 
 let Conversation;
 
@@ -6,10 +7,10 @@ let Conversation;
   Conversation = (await import('../data/models/messageSchema.js')).default;
 })();
 
-const OpenAI = require('openai');
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
+// Get provider order from environment variable (comma-separated)
+const PROVIDER_ORDER = process.env.AI_PROVIDER_ORDER?.split(',') || ['deepseek', 'openai'];
 
 // Función para obtener la fecha actual en formato Costa Rica
 function getCurrentDate() {
@@ -19,6 +20,32 @@ function getCurrentDate() {
     month: '2-digit',
     year: 'numeric'
   });
+}
+
+async function callAIService(messages, providerName) {
+  const provider = AI_PROVIDERS[providerName];
+  if (!provider?.apiKey) {
+    console.error(`${providerName} API key not configured`);
+    return null;
+  }
+
+  try {
+    const response = await fetch(provider.endpoint, {
+      method: 'POST',
+      headers: provider.headers(provider.apiKey),
+      body: JSON.stringify(provider.body(messages))
+    });
+
+    if (!response.ok) {
+      throw new Error(`${providerName} API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return provider.responseParser(data);
+  } catch (error) {
+    console.error(`Error with ${providerName}:`, error.message);
+    return null;
+  }
 }
 
 exports.getChatbotResponse = async (userMessage, conversationId = null) => {
@@ -34,34 +61,24 @@ exports.getChatbotResponse = async (userMessage, conversationId = null) => {
   }
 
   if (newConversation) {
-    const systemPrompt = `Eres un experto en surf y oceanografía especializado en Santa Teresa, Costa Rica. Genera pronósticos detallados usando esta lógica:
+    const systemPrompt = `Eres un experto en surf y oceanografía especializado en Santa Teresa, Costa Rica. La prioridad son los datos del forecast de surfline.com al respecto de santa teresa, Genera pronósticos detallados usando esta lógica:
 
-    1. Playas a cubrir:
-    - Santa Teresa (principal)
-    - Playa Hermosa (norte de Santa Teresa)
-    - Playa Carmen (sur de Santa Teresa)
-    - Cedros
-    - Lajas (Cabuya)
-
-    2. Comportamiento de swells:
-    - Swells SUR (dirección <200°): Mejoran en Cabuya (Lajas) con periodos >16s
-    - Swells NORTE (dirección >200°): Mejores olas en Santa Teresa y Playa Hermosa
-
+    1. Playa a cubrir:
+    - Santa Teresa costa rica
 
     3. Mareas:
-    - Incluir tabla de mareas actuales
+    - Incluir tabla de mareas actuales para santa teresa
 
     Formato requerido:
     📅 [Fecha actual]
-    🌊 Pronóstico próximos 16 días:
+    🌊 Pronóstico para hoy y proximos 5 dias:
     - Día [X]: [Descripción técnica con dirección swell, periodo y tamaño]
-    ...
     
-    🏖 Recomendación diaria de playas
     📈 Mareas hoy (${getCurrentDate()}):
     - [Hora]: [Altura]m ([Tipo])
     `;
 
+    
     const newConv = new Conversation({
       messages: [{ role: "system", content: systemPrompt }]
     });
@@ -72,27 +89,26 @@ exports.getChatbotResponse = async (userMessage, conversationId = null) => {
 
   messages.push({ role: "user", content: userMessage });
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: messages,
-      temperature: 0.3,
-      max_tokens: 1500
-    });
+  let assistantResponse = null;
+  
+  // Try providers in configured order
+  for (const providerName of PROVIDER_ORDER) {
+    assistantResponse = await callAIService(messages, providerName);
+    if (assistantResponse) break;
+  }
 
-    const assistantResponse = completion.choices[0].message.content;
-    
-    messages.push({ role: "assistant", content: assistantResponse });
-    await Conversation.findByIdAndUpdate(
-      conversationId,
-      { messages: messages, lastUpdated: Date.now() },
-      { new: true }
-    );
-
-    return { response: assistantResponse, conversationId: conversationId };
-
-  } catch (error) {
-    console.error("Error en OpenAI API:", error);
+  if (!assistantResponse) {
+    console.error("All AI providers failed");
     throw new Error("Error generando pronóstico. Intenta nuevamente.");
   }
+
+  messages.push({ role: "assistant", content: assistantResponse });
+  await Conversation.findByIdAndUpdate(
+    conversationId,
+    { messages: messages, lastUpdated: Date.now() },
+    { new: true }
+  );
+
+  return { response: assistantResponse, conversationId: conversationId };
 };
+   
