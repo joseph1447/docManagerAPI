@@ -87,10 +87,128 @@
  *                   error:
  *                     type: string
  *                     example: "Failed to update volatile data"
+ *
+ * /api/top50-buy-opportunity:
+ *   get:
+ *     summary: Gets the top 50 cryptocurrencies with the best buy opportunity.
+ *     tags: [Crypto]
+ *     responses:
+ *       200:
+ *         description: A list of the top 50 cryptocurrencies with the best buy opportunity.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Top 50 cryptocurrencies with the best buy opportunity"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       symbol:
+ *                         type: string
+ *                         example: "BTC"
+ *                       currentPrice:
+ *                         type: number
+ *                         example: 42000
+ *                       volume:
+ *                         type: number
+ *                         example: 1500000
+ *                       marketCap:
+ *                         type: number
+ *                         example: 800000000
+ *                       rsi:
+ *                         type: number
+ *                         example: 25
+ *                       imageUrl:
+ *                         type: string
+ *                         example: "https://example.com/btc.png"
+ *       404:
+ *         description: No data found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "No data found."
+ *       500:
+ *         description: Internal server error.
+ *         content:
+ *            application/json:
+ *              schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Internal server error."
+ *
+ * /api/top50-sell-opportunity:
+ *   get:
+ *     summary: Gets the top 50 cryptocurrencies with the best sell opportunity.
+ *     tags: [Crypto]
+ *     responses:
+ *       200:
+ *         description: A list of the top 50 cryptocurrencies with the best sell opportunity.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Top 50 cryptocurrencies with the best sell opportunity"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       symbol:
+ *                         type: string
+ *                         example: "BTC"
+ *                       currentPrice:
+ *                         type: number
+ *                         example: 42000
+ *                       volume:
+ *                         type: number
+ *                         example: 1500000
+ *                       marketCap:
+ *                         type: number
+ *                         example: 800000000
+ *                       rsi:
+ *                         type: number
+ *                         example: 75
+ *                       imageUrl:
+ *                         type: string
+ *                         example: "https://example.com/btc.png"
+ *       404:
+ *         description: No data found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "No data found."
+ *       500:
+ *         description: Internal server error.
+ *         content:
+ *            application/json:
+ *              schema:
+ *                 type: object
+ *                 properties:
+ *                   message:
+ *                     type: string
+ *                     example: "Internal server error."
  */
 
 const express = require('express');
-const { getTop20Volatile } = require('../services/binanceService');
+const { getTop20Volatile, getTop50BuyOpportunity, getTop50SellOpportunity } = require('../services/binanceService');
 const router = express.Router();
 
 router.get('/top20-volatile', async (req, res) => {
@@ -107,6 +225,40 @@ router.get('/top20-volatile', async (req, res) => {
     } catch (error) {
         console.error("Error al obtener datos de Binance:", error.message);
         res.status(500).json({ message: "Error interno del servidor." });
+    }
+});
+
+router.get('/top50-buy-opportunity', async (req, res) => {
+    try {
+        const top50Buy = await getTop50BuyOpportunity(false);
+        if (top50Buy.length > 0) {
+            res.json({
+                message: "Top 50 cryptocurrencies with the best buy opportunity",
+                data: top50Buy
+            });
+        } else {
+            res.status(404).json({ message: "No data found." });
+        }
+    } catch (error) {
+        console.error("Error getting top 50 buy opportunity:", error.message);
+        res.status(500).json({ message: "Internal server error." });
+    }
+});
+
+router.get('/top50-sell-opportunity', async (req, res) => {
+    try {
+        const top50Sell = await getTop50SellOpportunity(false);
+        if (top50Sell.length > 0) {
+            res.json({
+                message: "Top 50 cryptocurrencies with the best sell opportunity",
+                data: top50Sell
+            });
+        } else {
+            res.status(404).json({ message: "No data found." });
+        }
+    } catch (error) {
+        console.error("Error getting top 50 sell opportunity:", error.message);
+        res.status(500).json({ message: "Internal server error." });
     }
 });
 

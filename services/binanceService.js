@@ -55,10 +55,48 @@ async function getKlinesFromCacheOrAPI(symbol, interval, limit) {
       console.warn(`Collection does not exist, but it will be created automatically.`);
     } else {
       console.error(`Error in getKlinesFromCacheOrAPI for ${symbol}:`, error.message);
-    }
+    }K
     return null;
   }
 }
+
+async function calculateRSI(klines, period = 14) {
+  if (!klines || klines.length < period) {
+    return null; // Not enough data to calculate RSI
+  }
+
+  let gains = 0;
+  let losses = 0;
+
+  for (let i = 1; i <= period; i++) {
+    const priceChange = klines[i].close - klines[i - 1].close;
+    if (priceChange > 0) {
+      gains += priceChange;
+    } else {
+      losses -= priceChange; // losses are positive values
+    }
+  }
+
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+
+  // Calculate subsequent RS and RSI
+  for (let i = period + 1; i < klines.length; i++) {
+    const priceChange = klines[i].close - klines[i - 1].close;
+    if (priceChange > 0) {
+      avgGain = (avgGain * (period - 1) + priceChange) / period;
+      avgLoss = (avgLoss * (period - 1)) / period; // No loss this period
+    } else {
+      avgLoss = (avgLoss * (period - 1) - priceChange) / period; // Add positive loss
+      avgGain = (avgGain * (period - 1)) / period; // No gain this period
+    }
+  }
+
+  const rs = avgLoss === 0 ? 200 : avgGain / avgLoss; // Prevent division by zero
+  const rsi = 100 - (100 / (1 + rs));
+  return rsi;
+}
+
 
 
 async function updateKlinesFromBinance(symbols, interval, limit) {
@@ -136,5 +174,149 @@ async function getTop20Volatile(updateFromBinance = true) { // Default to true (
   }
 }
 
-module.exports = { getTop20Volatile };
-  
+async function getTop50BuyOpportunity(updateFromBinance = true) {
+  try {
+    const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`);
+    const exchangeInfoResponse = await axios.get(`${BASE_URL}/exchangeInfo`);
+
+    if (tickersResponse.status !== 200 || exchangeInfoResponse.status !== 200) {
+      console.error('Error fetching data from Binance');
+      return [];
+    }
+
+    const tickersData = tickersResponse.data;
+    const exchangeInfoData = exchangeInfoResponse.data;
+
+    if (!Array.isArray(tickersData) || !Array.isArray(exchangeInfoData.symbols)) {
+        console.error("Unexpected data format from Binance");
+        return [];
+    }
+
+    const usdtTickers = tickersData.filter(ticker => ticker.symbol.endsWith('USDT'));
+    const symbols = usdtTickers.map(ticker => ticker.symbol);
+
+    if (updateFromBinance) {
+        // Fetch 200 klines for RSI calculation (typically requires more data)
+        await updateKlinesFromBinance(symbols, '1h', 200);
+    }
+
+    const buyOpportunities = [];
+
+    for (const ticker of usdtTickers) {
+      const symbol = ticker.symbol;
+      const symbolNOUSDT = symbol.replace('USDT', '');
+      const cachedData = await Kline.findOne({ symbol: symbolNOUSDT.toUpperCase(), interval: '1h' });
+
+      if (cachedData && cachedData.klines && cachedData.klines.length >= 200) {
+          const klines = cachedData.klines;
+          const rsi = calculateRSI(klines);
+          const volume = parseFloat(ticker.volume);
+          const currentPrice = parseFloat(ticker.lastPrice);
+          const marketCap = parseFloat(ticker.quoteVolume) * currentPrice; // Simplified market cap calculation
+          const imageUrl = `https://assets.binance.com/asset/public/i30/${symbolNOUSDT.toLowerCase()}.png`;
+
+          // Basic criteria for buy opportunity: low RSI (e.g., < 30) and high volume
+          if (rsi !== null && rsi < 40 && volume > 1000000) {
+            buyOpportunities.push({
+                symbol: symbolNOUSDT,
+                currentPrice,
+                volume,
+                marketCap,
+                rsi,
+                imageUrl,
+            });
+          }
+      }
+    }
+
+    // Sort by RSI (lower is better for buying) and then volume (higher is better)
+    buyOpportunities.sort((a, b) => {
+        if (a.rsi !== b.rsi) {
+            return a.rsi - b.rsi; // Ascending RSI
+        } else {
+            return b.volume - a.volume; // Descending volume
+        }
+    });
+
+    return buyOpportunities.slice(0, 50);
+
+  } catch (error) {
+    console.error("Error in getTop50BuyOpportunity:", error);
+    return [];
+  }
+}
+
+async function getTop50SellOpportunity(updateFromBinance = true) {
+  try {
+    const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`);
+    const exchangeInfoResponse = await axios.get(`${BASE_URL}/exchangeInfo`);
+
+    if (tickersResponse.status !== 200 || exchangeInfoResponse.status !== 200) {
+      console.error('Error fetching data from Binance');
+      return [];
+    }
+
+    const tickersData = tickersResponse.data;
+    const exchangeInfoData = exchangeInfoResponse.data;
+
+    if (!Array.isArray(tickersData) || !Array.isArray(exchangeInfoData.symbols)) {
+        console.error("Unexpected data format from Binance");
+        return [];
+    }
+
+    const usdtTickers = tickersData.filter(ticker => ticker.symbol.endsWith('USDT'));
+    const symbols = usdtTickers.map(ticker => ticker.symbol);
+
+    if (updateFromBinance) {
+        // Fetch 200 klines for RSI calculation
+        await updateKlinesFromBinance(symbols, '1h', 200);
+    }
+
+    const sellOpportunities = [];
+
+    for (const ticker of usdtTickers) {
+      const symbol = ticker.symbol;
+      const symbolNOUSDT = symbol.replace('USDT', '');
+      const cachedData = await Kline.findOne({ symbol: symbolNOUSDT.toUpperCase(), interval: '1h' });
+
+      if (cachedData && cachedData.klines && cachedData.klines.length >= 200) {
+          const klines = cachedData.klines;
+          const rsi = calculateRSI(klines);
+          const volume = parseFloat(ticker.volume);
+          const currentPrice = parseFloat(ticker.lastPrice);
+          const marketCap = parseFloat(ticker.quoteVolume) * currentPrice; // Simplified market cap calculation
+          const imageUrl = `https://assets.binance.com/asset/public/i30/${symbolNOUSDT.toLowerCase()}.png`;
+
+          // Basic criteria for sell opportunity: high RSI (e.g., > 70) and high volume
+          if (rsi !== null && rsi > 60 && volume > 1000000) {
+            sellOpportunities.push({
+                symbol: symbolNOUSDT,
+                currentPrice,
+                volume,
+                marketCap,
+                rsi,
+                imageUrl,
+            });
+          }
+      }
+    }
+
+    // Sort by RSI (higher is better for selling) and then volume (higher is better)
+    sellOpportunities.sort((a, b) => {
+        if (a.rsi !== b.rsi) {
+            return b.rsi - a.rsi; // Descending RSI
+        } else {
+            return b.volume - a.volume; // Descending volume
+        }
+    });
+
+    return sellOpportunities.slice(0, 50);
+
+  } catch (error) {
+    console.error("Error in getTop50SellOpportunity:", error);
+    return [];
+  }
+}
+
+
+module.exports = { getTop20Volatile, getTop50BuyOpportunity, getTop50SellOpportunity };
