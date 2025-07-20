@@ -1,322 +1,226 @@
-const { Kline } = require('../data/models/klineSchema');
 const axios = require('axios');
 
 const BASE_URL = 'https://api.binance.com/api/v3';
 
+// Caché en memoria para los datos de Klines
+// Estructura: { 'SYMBOL_INTERVAL': { data: [], lastUpdated: timestamp } }
+const klinesCache = {};
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutos de duración de la caché
+
+/**
+ * Obtiene los datos de Klines (velas) de la caché o de la API de Binance.
+ * Almacena en caché los datos para futuras solicitudes.
+ * @param {string} symbol - El símbolo del par de trading (ej: 'BTCUSDT').
+ * @param {string} interval - El intervalo de las velas (ej: '1h').
+ * @param {number} limit - El número máximo de velas a obtener.
+ * @returns {Array|null} Un array de objetos kline procesados o null si hay un error.
+ */
 async function getKlinesFromCacheOrAPI(symbol, interval, limit) {
-  try {
-    console.log(`Querying cache for symbol: ${symbol}, interval: ${interval}`);
-    const cachedData = await Kline.findOne({
-      symbol: symbol.toUpperCase(),
-      interval: interval.toLowerCase(),
-    });
+    const cacheKey = `${symbol.toUpperCase()}_${interval.toLowerCase()}`;
+    const cachedData = klinesCache[cacheKey];
 
-    if (cachedData && cachedData.lastUpdated && Date.now() - cachedData.lastUpdated < 15 * 15 * 1000) {
-      console.log(`Using cached Kline data for ${symbol}-${interval}`);
-      return cachedData.klines;
+    // Verificar si los datos están en caché y no están caducados
+    if (cachedData && (Date.now() - cachedData.lastUpdated < CACHE_DURATION_MS)) {
+        // console.log(`Usando datos de Kline en caché para ${symbol}-${interval}`);
+        return cachedData.data;
     }
 
-    console.log(`Fetching Kline data from Binance for ${symbol}-${interval}`);
-    const url = new URL(`${BASE_URL}/klines`);
-    url.searchParams.append('symbol', symbol);
-    url.searchParams.append('interval', interval);
-    url.searchParams.append('limit', limit);
+    // Si no hay caché o está caducada, obtener de Binance
+    // console.log(`Obteniendo datos de Kline de Binance para ${symbol}-${interval}`);
+    try {
+        const url = new URL(`${BASE_URL}/klines`);
+        url.searchParams.append('symbol', symbol);
+        url.searchParams.append('interval', interval);
+        url.searchParams.append('limit', limit);
 
-    const response = await axios.get(url.toString());
-    if (response.status !== 200) {
-      console.error(`Error fetching klines for ${symbol} (status: ${response.status})`);
-      return null;
-    }
+        const response = await axios.get(url.toString());
 
-    const klines = response.data;
-    if (!Array.isArray(klines) || klines.length === 0) {
-      console.warn(`No klines data for ${symbol}`);
-      return null;
-    }
+        if (response.status !== 200) {
+            console.error(`Error al obtener klines para ${symbol} (estado: ${response.status})`);
+            return null;
+        }
 
-    const processedKlines = klines.map(d => ({
-      open: parseFloat(d[1]),
-      high: parseFloat(d[2]),
-      low: parseFloat(d[3]),
-      close: parseFloat(d[4]),
-      volume: parseFloat(d[5]),
-    }));
+        const klines = response.data;
+        if (!Array.isArray(klines) || klines.length === 0) {
+            console.warn(`No se encontraron datos de klines para ${symbol}`);
+            return null;
+        }
 
-    console.log(`Saving Kline data for ${symbol}-${interval}`);
-    await Kline.updateOne(
-      { symbol: symbol.toUpperCase(), interval: interval.toLowerCase() },
-      { $set: { klines: processedKlines, lastUpdated: Date.now() } },
-      { upsert: true } // Esta opción crea la colección si no existe.
-    );
+        const processedKlines = klines.map(d => ({
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+            volume: parseFloat(d[5]),
+        }));
 
-    return processedKlines;
-  } catch (error) {
-    if (error.message.includes('collection does not exist')) {
-      console.warn(`Collection does not exist, but it will be created automatically.`);
-    } else {
-      console.error(`Error in getKlinesFromCacheOrAPI for ${symbol}:`, error.message);
-    }K
-    return null;
-  }
-}
+        // Guardar en caché
+        klinesCache[cacheKey] = {
+            data: processedKlines,
+            lastUpdated: Date.now(),
+        };
 
-async function calculateRSI(klines, period = 14) {
-  if (!klines || klines.length < period) {
-    return null; // Not enough data to calculate RSI
-  }
-
-  let gains = 0;
-  let losses = 0;
-
-  for (let i = 1; i <= period; i++) {
-    const priceChange = klines[i].close - klines[i - 1].close;
-    if (priceChange > 0) {
-      gains += priceChange;
-    } else {
-      losses -= priceChange; // losses are positive values
-    }
-  }
-
-  let avgGain = gains / period;
-  let avgLoss = losses / period;
-
-  // Calculate subsequent RS and RSI
-  for (let i = period + 1; i < klines.length; i++) {
-    const priceChange = klines[i].close - klines[i - 1].close;
-    if (priceChange > 0) {
-      avgGain = (avgGain * (period - 1) + priceChange) / period;
-      avgLoss = (avgLoss * (period - 1)) / period; // No loss this period
-    } else {
-      avgLoss = (avgLoss * (period - 1) - priceChange) / period; // Add positive loss
-      avgGain = (avgGain * (period - 1)) / period; // No gain this period
-    }
-  }
-
-  const rs = avgLoss === 0 ? 200 : avgGain / avgLoss; // Prevent division by zero
-  const rsi = 100 - (100 / (1 + rs));
-  return rsi;
-}
-
-
-
-async function updateKlinesFromBinance(symbols, interval, limit) {
-  try {
-    const klinesPromises = symbols.map(symbol =>
-      getKlinesFromCacheOrAPI(symbol, interval, limit).catch(error => {
-        console.error(`Error fetching klines for ${symbol}:`, error.message);
+        return processedKlines;
+    } catch (error) {
+        console.error(`Error en getKlinesFromCacheOrAPI para ${symbol}:`, error.message);
         return null;
-      })
-    );
-    const klinesResults = await Promise.all(klinesPromises);
-
-    return klinesResults.filter(result => result !== null);
-
-  } catch (error) {
-    console.error("Error fetching multiple klines:", error);
-    return [];
-  }
-}
-async function getTop20Volatile(updateFromBinance = true) { // Default to true (update data)
-  try {
-    const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`); // Use 24hr ticker endpoint
-
-    if (tickersResponse.status !== 200) {
-      console.error(`Error fetching tickers (status: ${tickersResponse.status})`);
-      return [];
     }
-
-    const tickersData = tickersResponse.data;
-
-    if (!Array.isArray(tickersData)) {
-      console.error("Unexpected tickers response:", tickersData);
-      return [];
-    }
-
-    const usdtSymbols = tickersData.filter(ticker => ticker.symbol.endsWith('USDT')).map(ticker => ticker.symbol);
-
-    // Update klines from Binance only if `updateFromBinance` is true
-    if (updateFromBinance) {
-      await updateKlinesFromBinance(usdtSymbols, '1h', 24);
-    }
-
-    const volatileTickers = [];
-
-    for (const symbol of usdtSymbols) {
-      const symbolNOUSDT = symbol.replace('USDT','');
-      const cachedData = await Kline.findOne({ symbol: symbolNOUSDT.toUpperCase(), interval: '1h' });
-      const ticker = tickersData.find(t => t.symbol === symbol);
-
-      if (cachedData && ticker && cachedData.klines && cachedData.klines.length >= 24) {
-          const priceChanges = cachedData.klines.map(kline => kline.close - kline.open);
-          const volatility = Math.max(...priceChanges.map(Math.abs));
-          const imageUrl = `https://assets.binance.com/asset/public/i30/`; // Replace with correct URL format if needed
-          const imageName = `${symbolNOUSDT.toLowerCase()}.png`;
-
-          volatileTickers.push({
-              symbol: symbolNOUSDT,
-              volatility,
-              volume: parseFloat(ticker.volume),
-              currentPrice: parseFloat(ticker.lastPrice),
-              imageUrl: `${imageUrl}${imageName}`, // Concatenate image URL
-          });
-      } else {
-          console.warn(`Skipping ${symbolNOUSDT} due to missing data.`);
-      }
-    }
-
-    volatileTickers.sort((a, b) => b.volatility - a.volatility);
-    const top20 = volatileTickers.filter(t => t.volume > 1000000).slice(0, 20);
-
-    return top20;
-  } catch (error) {
-    console.error("Error in getTop20Volatile:", error);
-    return [];
-  }
 }
 
-async function getTop50BuyOpportunity(updateFromBinance = true) {
-  try {
-    const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`);
-    const exchangeInfoResponse = await axios.get(`${BASE_URL}/exchangeInfo`);
-
-    if (tickersResponse.status !== 200 || exchangeInfoResponse.status !== 200) {
-      console.error('Error fetching data from Binance');
-      return [];
+/**
+ * Calcula el Índice de Fuerza Relativa (RSI) para una serie de datos de Klines.
+ * @param {Array} klines - Array de objetos kline con propiedades 'close'.
+ * @param {number} period - El período del RSI (por defecto: 14).
+ * @returns {number|null} El valor del RSI o null si no hay suficientes datos.
+ */
+async function calculateRSI(klines, period = 14) {
+    if (!klines || klines.length < period + 1) { // Necesitamos al menos period + 1 velas para calcular el primer cambio.
+        return null;
     }
 
-    const tickersData = tickersResponse.data;
-    const exchangeInfoData = exchangeInfoResponse.data;
+    let gains = 0;
+    let losses = 0;
 
-    if (!Array.isArray(tickersData) || !Array.isArray(exchangeInfoData.symbols)) {
-        console.error("Unexpected data format from Binance");
+    // Cálculo inicial para el primer período
+    for (let i = 1; i <= period; i++) {
+        const priceChange = klines[i].close - klines[i - 1].close;
+        if (priceChange > 0) {
+            gains += priceChange;
+        } else {
+            losses -= priceChange; // Las pérdidas se tratan como valores positivos
+        }
+    }
+
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+
+    // Cálculo de la media exponencial suavizada para los períodos siguientes (Método de Wilder)
+    for (let i = period + 1; i < klines.length; i++) {
+        const priceChange = klines[i].close - klines[i - 1].close;
+        if (priceChange > 0) {
+            avgGain = (avgGain * (period - 1) + priceChange) / period;
+            avgLoss = (avgLoss * (period - 1)) / period;
+        } else {
+            avgLoss = (avgLoss * (period - 1) - priceChange) / period;
+            avgGain = (avgGain * (period - 1)) / period;
+        }
+    }
+
+    const rs = avgLoss === 0 ? 200 : avgGain / avgLoss; // Evitar división por cero. Si avgLoss es 0, RSI es 100.
+    const rsi = 100 - (100 / (1 + rs));
+    return rsi;
+}
+
+/**
+ * Obtiene una lista de las 100 criptomonedas más fiables de Binance,
+ * basándose en su volumen de trading en USDT, e incluyendo stablecoins clave.
+ * Incluye RSI.
+ *
+ * @returns {Promise<Array>} Un array de objetos de criptomonedas con su información relevante.
+ */
+async function listCoins() {
+    try {
+        // 1. Obtener todos los tickers de 24 horas de Binance
+        const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`);
+
+        if (tickersResponse.status !== 200) {
+            console.error(`Error al obtener tickers de Binance (estado: ${tickersResponse.status})`);
+            return [];
+        }
+
+        const tickersData = tickersResponse.data;
+
+        if (!Array.isArray(tickersData)) {
+            console.error("Formato de datos inesperado de tickers de Binance:", tickersData);
+            return [];
+        }
+
+        // 2. Definir stablecoins importantes que siempre deben incluirse
+        const importantStablecoins = ['USDT', 'FDUSD', 'USDC', 'DAI', 'BUSD']; // Agregadas DAI y BUSD si son relevantes
+
+        const selectedCoins = [];
+        const addedSymbols = new Set(); // Para evitar duplicados
+
+        // 3. Procesar y filtrar pares USDT, y recopilar datos para ordenar
+        let usdtPairs = tickersData
+            .filter(ticker => ticker.symbol.endsWith('USDT'))
+            .map(ticker => {
+                const symbolNOUSDT = ticker.symbol.replace('USDT', '');
+                const tradeVolumeUSDT = parseFloat(ticker.quoteVolume); // Volumen en USDT
+                const currentPrice = parseFloat(ticker.lastPrice);
+                const volume = parseFloat(ticker.volume); // Volumen en la moneda base
+
+                // Generar URL de la imagen del logo
+                const imageUrl = `https://assets.binance.com/asset/public/i30/${symbolNOUSDT.toLowerCase()}.png`;
+
+                return {
+                    symbol: symbolNOUSDT,
+                    currentPrice,
+                    volume,
+                    tradeVolumeUSDT,
+                    imageUrl,
+                    // Añadir una propiedad para priorizar stablecoins en el ordenamiento
+                    isStablecoin: importantStablecoins.includes(symbolNOUSDT)
+                };
+            });
+
+        // 4. Ordenar las monedas: primero stablecoins, luego por volumen de trading (descendente)
+        usdtPairs.sort((a, b) => {
+            // Priorizar stablecoins (true viene antes que false)
+            if (a.isStablecoin && !b.isStablecoin) return -1;
+            if (!a.isStablecoin && b.isStablecoin) return 1;
+            
+            // Si ambos son stablecoins o ninguno lo es, ordenar por volumen
+            return b.tradeVolumeUSDT - a.tradeVolumeUSDT;
+        });
+
+        // 5. Añadir las stablecoins importantes al principio si no están ya
+        for (const stablecoinSymbol of importantStablecoins) {
+            const stablecoinTicker = usdtPairs.find(coin => coin.symbol === stablecoinSymbol);
+            if (stablecoinTicker && !addedSymbols.has(stablecoinSymbol)) {
+                selectedCoins.push(stablecoinTicker);
+                addedSymbols.add(stablecoinSymbol);
+            }
+        }
+
+        // 6. Añadir el resto de las monedas fiables hasta alcanzar 100
+        for (const coin of usdtPairs) {
+            if (!addedSymbols.has(coin.symbol) && selectedCoins.length < 100) {
+                selectedCoins.push(coin);
+                addedSymbols.add(coin.symbol);
+            }
+            if (selectedCoins.length >= 100) {
+                break; // Detener si ya tenemos 100 monedas
+            }
+        }
+
+        // 7. Para cada moneda seleccionada, obtener Klines (de caché o API) y calcular RSI
+        // Se usan Promise.all para hacer las llamadas a Klines concurrentemente.
+        const finalCoins = await Promise.all(selectedCoins.map(async (coin) => {
+            // Se necesitan al menos 200 klines para un cálculo robusto del RSI (periodo 14)
+            const klines = await getKlinesFromCacheOrAPI(`${coin.symbol}USDT`, '1h', 200); 
+            const rsi = klines ? await calculateRSI(klines) : null;
+
+            return {
+                symbol: coin.symbol,
+                currentPrice: coin.currentPrice,
+                volume: coin.volume,
+                tradeVolumeUSDT: coin.tradeVolumeUSDT,
+                rsi: rsi,
+                imageUrl: coin.imageUrl,
+            };
+        }));
+
+        console.log(`Se encontraron ${finalCoins.length} monedas fiables con RSI.`);
+        return finalCoins;
+
+    } catch (error) {
+        console.error("Error en listCoins:", error);
         return [];
     }
-
-    const usdtTickers = tickersData.filter(ticker => ticker.symbol.endsWith('USDT'));
-    const symbols = usdtTickers.map(ticker => ticker.symbol);
-
-    if (updateFromBinance) {
-        // Fetch 200 klines for RSI calculation (typically requires more data)
-        await updateKlinesFromBinance(symbols, '1h', 200);
-    }
-
-    const buyOpportunities = [];
-
-    for (const ticker of usdtTickers) {
-      const symbol = ticker.symbol;
-      const symbolNOUSDT = symbol.replace('USDT', '');
-      const cachedData = await Kline.findOne({ symbol: symbolNOUSDT.toUpperCase(), interval: '1h' });
-
-      if (cachedData && cachedData.klines && cachedData.klines.length >= 200) {
-          const klines = cachedData.klines;
-          const rsi = calculateRSI(klines);
-          const volume = parseFloat(ticker.volume);
-          const currentPrice = parseFloat(ticker.lastPrice);
-          const marketCap = parseFloat(ticker.quoteVolume) * currentPrice; // Simplified market cap calculation
-          const imageUrl = `https://assets.binance.com/asset/public/i30/${symbolNOUSDT.toLowerCase()}.png`;
-
-          // Basic criteria for buy opportunity: low RSI (e.g., < 30) and high volume
-          if (rsi !== null && rsi < 40 && volume > 1000000) {
-            buyOpportunities.push({
-                symbol: symbolNOUSDT,
-                currentPrice,
-                volume,
-                marketCap,
-                rsi,
-                imageUrl,
-            });
-          }
-      }
-    }
-
-    // Sort by RSI (lower is better for buying) and then volume (higher is better)
-    buyOpportunities.sort((a, b) => {
-        if (a.rsi !== b.rsi) {
-            return a.rsi - b.rsi; // Ascending RSI
-        } else {
-            return b.volume - a.volume; // Descending volume
-        }
-    });
-
-    return buyOpportunities.slice(0, 50);
-
-  } catch (error) {
-    console.error("Error in getTop50BuyOpportunity:", error);
-    return [];
-  }
 }
 
-async function getTop50SellOpportunity(updateFromBinance = true) {
-  try {
-    const tickersResponse = await axios.get(`${BASE_URL}/ticker/24hr`);
-    const exchangeInfoResponse = await axios.get(`${BASE_URL}/exchangeInfo`);
-
-    if (tickersResponse.status !== 200 || exchangeInfoResponse.status !== 200) {
-      console.error('Error fetching data from Binance');
-      return [];
-    }
-
-    const tickersData = tickersResponse.data;
-    const exchangeInfoData = exchangeInfoResponse.data;
-
-    if (!Array.isArray(tickersData) || !Array.isArray(exchangeInfoData.symbols)) {
-        console.error("Unexpected data format from Binance");
-        return [];
-    }
-
-    const usdtTickers = tickersData.filter(ticker => ticker.symbol.endsWith('USDT'));
-    const symbols = usdtTickers.map(ticker => ticker.symbol);
-
-    if (updateFromBinance) {
-        // Fetch 200 klines for RSI calculation
-        await updateKlinesFromBinance(symbols, '1h', 200);
-    }
-
-    const sellOpportunities = [];
-
-    for (const ticker of usdtTickers) {
-      const symbol = ticker.symbol;
-      const symbolNOUSDT = symbol.replace('USDT', '');
-      const cachedData = await Kline.findOne({ symbol: symbolNOUSDT.toUpperCase(), interval: '1h' });
-
-      if (cachedData && cachedData.klines && cachedData.klines.length >= 200) {
-          const klines = cachedData.klines;
-          const rsi = calculateRSI(klines);
-          const volume = parseFloat(ticker.volume);
-          const currentPrice = parseFloat(ticker.lastPrice);
-          const marketCap = parseFloat(ticker.quoteVolume) * currentPrice; // Simplified market cap calculation
-          const imageUrl = `https://assets.binance.com/asset/public/i30/${symbolNOUSDT.toLowerCase()}.png`;
-
-          // Basic criteria for sell opportunity: high RSI (e.g., > 70) and high volume
-          if (rsi !== null && rsi > 60 && volume > 1000000) {
-            sellOpportunities.push({
-                symbol: symbolNOUSDT,
-                currentPrice,
-                volume,
-                marketCap,
-                rsi,
-                imageUrl,
-            });
-          }
-      }
-    }
-
-    // Sort by RSI (higher is better for selling) and then volume (higher is better)
-    sellOpportunities.sort((a, b) => {
-        if (a.rsi !== b.rsi) {
-            return b.rsi - a.rsi; // Descending RSI
-        } else {
-            return b.volume - a.volume; // Descending volume
-        }
-    });
-
-    return sellOpportunities.slice(0, 50);
-
-  } catch (error) {
-    console.error("Error in getTop50SellOpportunity:", error);
-    return [];
-  }
-}
-
-
-module.exports = { getTop20Volatile, getTop50BuyOpportunity, getTop50SellOpportunity };
+// Exporta el único método público
+module.exports = {
+    listCoins
+};
