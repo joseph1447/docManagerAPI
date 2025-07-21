@@ -70,10 +70,10 @@ async function getKlinesFromCacheOrAPI(symbol, interval, limit) {
 /**
  * Calcula el Índice de Fuerza Relativa (RSI) para una serie de datos de Klines.
  * @param {Array} klines - Array de objetos kline con propiedades 'close'.
- * @param {number} period - El período del RSI (por defecto: 14).
+ * @param {number} period - El período del RSI (por defecto: 6, como usa Binance para 1h RSI).
  * @returns {number|null} El valor del RSI o null si no hay suficientes datos.
  */
-async function calculateRSI(klines, period = 14) {
+async function calculateRSI(klines, period = 6) { // PERÍODO CAMBIADO A 6
     if (!klines || klines.length < period + 1) { // Necesitamos al menos period + 1 velas para calcular el primer cambio.
         return null;
     }
@@ -197,9 +197,10 @@ async function listCoins() {
         // 7. Para cada moneda seleccionada, obtener Klines (de caché o API) y calcular RSI
         // Se usan Promise.all para hacer las llamadas a Klines concurrentemente.
         const finalCoins = await Promise.all(selectedCoins.map(async (coin) => {
-            // Se necesitan al menos 200 klines para un cálculo robusto del RSI (periodo 14)
-            const klines = await getKlinesFromCacheOrAPI(`${coin.symbol}USDT`, '1h', 200); 
-            const rsi = klines ? await calculateRSI(klines) : null;
+            // Se necesitan suficientes klines para el cálculo del RSI (periodo 6).
+            // Un límite de 30 es seguro para un período de 6.
+            const klines = await getKlinesFromCacheOrAPI(`${coin.symbol}USDT`, '1h', 30); 
+            const rsi = klines ? await calculateRSI(klines, 6) : null; // Pasa el período 6 explícitamente
 
             return {
                 symbol: coin.symbol,
