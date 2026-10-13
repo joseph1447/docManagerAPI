@@ -5,7 +5,7 @@ El front es otro repo: **`C:\Repos\docManagerFront`** (Vite + React en Vercel). 
 
 - `app.js` arma la app sin efectos secundarios (sin conectar a Mongo ni escuchar puerto), para poder probarla.
 - `server.js` carga `.env`, conecta Mongo y escucha.
-- Facturas: `middleware/uploadXmlFiles.js` (multer en memoria, límites, nombres con tildes) → `controllers/facturaController.js` → `services/facturaService.js`.
+- Facturas: `middleware/uploadXmlFiles.js` (multer a disco temporal, sin tope de cantidad, nombres con tildes) → `controllers/facturaController.js` → `services/facturaService.js`.
 
 ## Antes de dar algo por terminado
 
@@ -17,7 +17,7 @@ npm test   # node --test "test/**/*.test.js" — tiene que pasar completo
 | --- | --- |
 | `test/facturaService.test.js` | Un caso por fixture: estado y código de error de cada XML. |
 | `test/excelCompat.test.js` | **El Excel no cambia**: compara fila por fila contra la implementación original congelada en `test/legacy/` (no editar ese archivo). |
-| `test/upload.api.test.js` | El endpoint real con supertest: contrato JSON, contrato binario viejo, 400/413/422, nombres con tildes. |
+| `test/upload.api.test.js` | El endpoint real con supertest: contrato JSON, contrato binario viejo, 400/413/422, nombres con tildes, 300 archivos en una petición, limpieza de temporales. |
 
 Si `excelCompat` falla, cambiaste lo que recibe la clienta: no ajustes la prueba sin que ella lo haya pedido.
 
@@ -49,7 +49,9 @@ Advertencias (el archivo SÍ entra al Excel, como antes):
 | `INVALID_AMOUNT` | Un monto no es numérico (queda `NaN` en el Excel). |
 | `DUPLICATE_DOCUMENT` | Misma clave (o emisor + consecutivo) que otro archivo del lote. |
 
-De la petición: `NO_FILES` (400), `TOO_MANY_FILES` / `FILE_TOO_LARGE` (413, este con `fileName`), `UNEXPECTED_FIELD` (400), `NO_VALID_FILES` (422, con `report`), `INTERNAL_ERROR` (500), `CORS_NOT_ALLOWED` (403).
+De la petición: `NO_FILES` (400), `FILE_TOO_LARGE` (413, con `fileName`; tope de 20 MB por archivo), `UNEXPECTED_FIELD` (400), `NO_VALID_FILES` (422, con `report`), `INTERNAL_ERROR` (500), `CORS_NOT_ALLOWED` (403).
+
+**No hay límite de cantidad de archivos** por carga: la clienta sube meses completos y lo pidió explícitamente. Los archivos van a disco (`os.tmpdir()/docmanager-uploads`, se borran al cerrar la respuesta) y se leen de a uno, así que la memoria no crece con el lote. Referencia: 3000 facturas en una petición ≈ 3 s en local.
 
 Todo mensaje nuevo: en español, dice qué pasó y trae `hint` con cómo resolverlo.
 

@@ -1,3 +1,4 @@
+const fs = require("fs");
 const ExcelJS = require("exceljs");
 const xml2js = require("xml2js");
 
@@ -284,7 +285,7 @@ const buildWorkbook = async (rows) => {
 };
 
 /**
- * @param {{ originalname: string, buffer: Buffer }[]} files
+ * @param {{ originalname: string, buffer?: Buffer, path?: string }[]} files multer files (disk or memory storage).
  * @returns {Promise<{ buffer: Buffer|null, report: object }>} buffer is null when no file could be processed.
  */
 exports.processInvoices = async (files) => {
@@ -295,7 +296,9 @@ exports.processInvoices = async (files) => {
     for (const [index, file] of files.entries()) {
         const entry = { index, fileName: file.originalname, status: "ok", error: null, warnings: [] };
         try {
-            const { row, meta, warnings } = await parseComprobante(file.buffer);
+            // One file in memory at a time, whatever the batch size.
+            const content = file.buffer ?? (await fs.promises.readFile(file.path));
+            const { row, meta, warnings } = await parseComprobante(content);
             Object.assign(entry, meta);
             entry.warnings = warnings;
 

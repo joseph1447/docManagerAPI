@@ -4,7 +4,7 @@ const fs = require("fs");
 const request = require("supertest");
 const app = require("../app");
 const { fixturePath, readWorkbook } = require("./helpers");
-const { MAX_FILES, MAX_FILE_SIZE_MB } = require("../middleware/uploadXmlFiles");
+const { MAX_FILE_SIZE_MB, UPLOAD_DIR } = require("../middleware/uploadXmlFiles");
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -79,13 +79,26 @@ describe("POST /upload", () => {
     assert.equal(res.body.report.files[0].fileName, "Factura Ñandú café.xml");
   });
 
-  test(`413 TOO_MANY_FILES above ${MAX_FILES} files`, async () => {
+  test("no limit on the number of files: 300 in one request are all processed", async () => {
     const req = request(app).post("/upload").set("Accept", "application/json");
-    const xml = fs.readFileSync(fixturePath("valid-tiquete-v44.xml"));
-    for (let i = 0; i <= MAX_FILES; i++) req.attach("files", xml, `t${i}.xml`);
+    const valid = fs.readFileSync(fixturePath("valid-tiquete-v44.xml"));
+    const broken = fs.readFileSync(fixturePath("malformada-cortada.xml"));
+    for (let i = 0; i < 300; i++) req.attach("files", i === 250 ? broken : valid, `t${i}.xml`);
     const res = await req;
-    assert.equal(res.status, 413);
-    assert.equal(res.body.error.code, "TOO_MANY_FILES");
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.report.summary, { total: 300, processed: 299, failed: 1, withWarnings: 298 });
+    assert.equal(res.body.report.files[250].fileName, "t250.xml");
+    assert.equal(res.body.report.files[250].error.code, "INVALID_XML");
+    const { rows } = await readWorkbook(Buffer.from(res.body.excel.base64, "base64"));
+    assert.equal(rows.length, 299);
+  });
+
+  test("temporary upload files are deleted after the response", async () => {
+    const before = new Set(fs.readdirSync(UPLOAD_DIR));
+    await upload(["valid-factura-v43-crc.xml", "vacio.xml"], { json: true });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const leftovers = fs.readdirSync(UPLOAD_DIR).filter((name) => !before.has(name));
+    assert.deepEqual(leftovers, []);
   });
 
   test(`413 FILE_TOO_LARGE above ${MAX_FILE_SIZE_MB} MB names the file`, async () => {
