@@ -1,7 +1,9 @@
 # docManagerAPI
 
 API Express (CommonJS) de DocManager, desplegada en Render (`npm start` → `server.js`).
-El front es otro repo: **`C:\Repos\docManagerFront`** (Vite + React en Vercel). El contrato de `/upload` está documentado en su `CLAUDE.md`; si lo cambias, actualiza los dos repos y sus pruebas.
+El front es otro repo: **`C:\Repos\docManagerFront`** (Vite + React en Vercel).
+
+> **Desde 2026-10 el front ya no usa `POST /upload`**: XML → Excel se procesa en el navegador (ver el `CLAUDE.md` del front, que ahora es la fuente de verdad de esa lógica). El endpoint queda por compatibilidad. Si cambias la lógica de facturas, hazlo en el front; aquí solo si algún cliente externo todavía llama `/upload`.
 
 - `app.js` arma la app sin efectos secundarios (sin conectar a Mongo ni escuchar puerto), para poder probarla.
 - `server.js` carga `.env`, conecta Mongo y escucha.
