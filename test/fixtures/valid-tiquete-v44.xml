@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TiqueteElectronico xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico">
+  <Clave>50601022600310100000300100001040000000789100000003</Clave>
+  <NumeroConsecutivo>00100001040000000789</NumeroConsecutivo>
+  <FechaEmision>2026-01-02T08:00:00-06:00</FechaEmision>
+  <Emisor>
+    <Nombre>Soda La Esquina</Nombre>
+    <Identificacion><Tipo>01</Tipo><Numero>111110111</Numero></Identificacion>
+  </Emisor>
+  <DetalleServicio>
+    <LineaDetalle><NumeroLinea>1</NumeroLinea><Detalle>Almuerzo ejecutivo</Detalle></LineaDetalle>
+  </DetalleServicio>
+  <ResumenFactura>
+    <TotalImpuesto>390.00000</TotalImpuesto>
+    <TotalComprobante>4390.00000</TotalComprobante>
+  </ResumenFactura>
+</TiqueteElectronico>

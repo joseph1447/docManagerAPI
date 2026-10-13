@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica">
+  <NumeroConsecutivo>00100001010000000888</NumeroConsecutivo>
+  <FechaEmision>2024-05-01T09:00:00-06:00</FechaEmision>
+  <Emisor><Nombre>Proveedor Monto</Nombre></Emisor>
+  <ResumenFactura><TotalImpuesto>13</TotalImpuesto><TotalComprobante>ciento trece</TotalComprobante></ResumenFactura>
+</FacturaElectronica>

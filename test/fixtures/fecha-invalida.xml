@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica">
+  <NumeroConsecutivo>00100001010000000777</NumeroConsecutivo>
+  <FechaEmision>15/03/2024</FechaEmision>
+  <Emisor><Nombre>Proveedor Fecha Mala</Nombre></Emisor>
+  <ResumenFactura><TotalImpuesto>0</TotalImpuesto><TotalComprobante>500</TotalComprobante></ResumenFactura>
+</FacturaElectronica>

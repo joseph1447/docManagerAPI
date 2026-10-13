@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MensajeHacienda xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeHacienda">
+  <Clave>50615032400310100000000100001010000000123100000001</Clave>
+  <NombreEmisor>Proveedor Demo S.A.</NombreEmisor>
+  <Mensaje>1</Mensaje>
+  <DetalleMensaje>Este comprobante fue aceptado en el ambiente de pruebas.</DetalleMensaje>
+</MensajeHacienda>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica" xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+  <Clave>50615032400310100000000100001010000000123100000001</Clave>
+  <CodigoActividad>721001</CodigoActividad>
+  <NumeroConsecutivo>00100001010000000123</NumeroConsecutivo>
+  <FechaEmision>2024-03-15T10:20:30-06:00</FechaEmision>
+  <Emisor>
+    <Nombre>Proveedor Demo S.A.</Nombre>
+    <Identificacion><Tipo>02</Tipo><Numero>3101000001</Numero></Identificacion>
+  </Emisor>
+  <Receptor><Nombre>Cliente Demo</Nombre></Receptor>
+  <CondicionVenta>01</CondicionVenta>
+  <DetalleServicio>
+    <LineaDetalle>
+      <NumeroLinea>1</NumeroLinea>
+      <Detalle>Servicio de limpieza</Detalle>
+      <MontoTotal>10000.00000</MontoTotal>
+    </LineaDetalle>
+  </DetalleServicio>
+  <ResumenFactura>
+    <CodigoTipoMoneda><CodigoMoneda>CRC</CodigoMoneda><TipoCambio>1.00000</TipoCambio></CodigoTipoMoneda>
+    <TotalImpuesto>1300.00000</TotalImpuesto>
+    <TotalComprobante>11300.00000</TotalComprobante>
+  </ResumenFactura>
+  <ds:Signature><ds:SignedInfo/></ds:Signature>
+</FacturaElectronica>

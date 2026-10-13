@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica">
+  <NumeroConsecutivo>00100001010000000555</NumeroConsecutivo>
+  <FechaEmision>2024-03-15T10:20:30-06:00</FechaEmision>
+  <Emisor>
+    <Nombre>Proveedor Cortado</Nombre>

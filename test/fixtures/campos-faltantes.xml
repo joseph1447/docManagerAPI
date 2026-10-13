@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica">
+  <FechaEmision>2024-05-01T09:00:00-06:00</FechaEmision>
+  <ResumenFactura><TotalImpuesto>13</TotalImpuesto><TotalComprobante>113</TotalComprobante></ResumenFactura>
+</FacturaElectronica>

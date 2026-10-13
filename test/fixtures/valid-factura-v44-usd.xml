@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica">
+  <Clave>50630112500310100000200100001010000004567100000002</Clave>
+  <NumeroConsecutivo>00100001010000004567</NumeroConsecutivo>
+  <FechaEmision>2025-11-30T19:45:00-06:00</FechaEmision>
+  <Emisor>
+    <Nombre>Importadora Ejemplo Ltda.</Nombre>
+    <Identificacion><Tipo>02</Tipo><Numero>3102000002</Numero></Identificacion>
+  </Emisor>
+  <DetalleServicio>
+    <LineaDetalle><NumeroLinea>1</NumeroLinea><Detalle>null-Licencia de software anual</Detalle></LineaDetalle>
+    <LineaDetalle><NumeroLinea>2</NumeroLinea><Detalle>Soporte</Detalle></LineaDetalle>
+  </DetalleServicio>
+  <ResumenFactura>
+    <CodigoTipoMoneda><CodigoMoneda>USD</CodigoMoneda><TipoCambio>512.35000</TipoCambio></CodigoTipoMoneda>
+    <TotalImpuesto>26.00000</TotalImpuesto>
+    <TotalComprobante>226.00000</TotalComprobante>
+  </ResumenFactura>
+</FacturaElectronica>

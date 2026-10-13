@@ -17,6 +17,7 @@ const allowedOrigins = [
         callback(new Error("No permitido por CORS"));
       }
     },
+    exposedHeaders: ["X-Request-Id"],
   };
   
   module.exports = corsOptions;
